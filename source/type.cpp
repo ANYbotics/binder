@@ -690,7 +690,7 @@ bool is_python_builtin(NamedDecl const *C)
 
 		"std::__hash_value_type",
 
-		"std::function", "std::complex", 
+		"std::function", "std::complex",
 		"std::ratio", "std::chrono::time_point", "std::chrono::duration",
 
 		// pybind11 types
@@ -757,7 +757,10 @@ bool is_python_builtin(NamedDecl const *C)
 	// STL
 	if (O_include_pybind11_stl && stl_builtin.count(name))
 		return true;
-
+	// Eigen
+	const bool eigenCustomBind = begins_with(name, "Eigen::Quaternion") || begins_with(name, "Eigen::RotationBase");
+	if( begins_with(name, "Eigen::") && !eigenCustomBind )
+		return true;
 	return false;
 }
 
