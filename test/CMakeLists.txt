@@ -11,9 +11,13 @@ message( STATUS "binder test: building ${stestnamenodot}.cpp for ${stestname}" )
 if (BINDER_MOCK_TEST)
   file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${stestnamenodot}.cpp INPUT ${CMAKE_CURRENT_SOURCE_DIR}/${stestname}.ref )
 else()
+  make_directory(${CMAKE_CURRENT_BINARY_DIR}/test)
   SET(${stestname}_config_flag "")
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${stestname}.config")
     SET(${stestname}_config_flag --config ${stestname}.config )
+  endif()
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${stestname}.cli")
+    FILE(READ "${CMAKE_CURRENT_SOURCE_DIR}/${stestname}.cli" ${stestname}_cli_flags)
   endif()
   file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${stestname}.hpp.include "#include <${stestname}.hpp>" )
   if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
@@ -97,15 +101,15 @@ set( binder_tests
          T30.include
          T31.include_for_class
          T32.call_guard
+         T33.buffer_protocol
          T40.stl
          T42.stl.names
          T42.stl.names.map
          T42.stl.names.set
          T42.stl.names.multimap
          T42.stl.names.multiset
-         T42.stl.names.optional
-         T42.stl.names.variant
          T42.stl.names.chrono
+         T43.stl.pybind11_include_stl
          T50.namespace_binder
          )
 if (pybind11_VERSION VERSION_LESS 2.5.99)

@@ -34,14 +34,19 @@ files. Typically the following files will be generated: ``<root-module>.cpp``, `
 ``--flat`` if specified instruct Binder to write generate code files into single directory. Generated files will be named as ``<root-module>.cpp``, ``<root-module>_1.cpp``, ``<root-module>_2.cpp``, ... etc.
 
 
+``--bind-class-template-specialization`` specify if class-template-specialization should be bound by-default
+
+
 ``--suppress-errors`` if the generated bindings codes are correct but there are some fatal errors from clang and you want to get rid of them. This situation can happen when you would like to generate binding codes for a small part of a huge project and the you cannot include all the required header files with ``-I`` to the command.
+
+
+``--include-pybind11-stl`` "if specified bindings for STL classes in ``<pybind11/stl.h>`` will be used instead of generating custom STL bindings. Note, STL bindings may be overkill and have potential preformance implications if data does not need to be copied between ``C++`` and ``python``. For more information, see `pybind11 STL documentation <https://pybind11.readthedocs.io/en/stable/advanced/cast/stl.html>`_.
 
 
 ``--annotate-includes`` [debug] if specified Binder will comment each include with type name which trigger it inclusion.
 
 
 ``--trace`` [debug] if specified instruct Binder to add extra debug output before binding each type. This might be useful when debugging generated code that produce seg-faults during python import.
-
 
 
 Config file options
@@ -72,6 +77,18 @@ Config file directives:
 
   -class utility::pointer::ReferenceCount
   -class std::__weak_ptr
+
+
+
+* ``python_builtin``, specify if particular class/struct should be considered a python builtin and assume existing bindings for it already exist.
+  The purpose of this directive is to allow developer to allow developers to toggle if bindings for types like ``std::optional`` or ``pybind11::dict`` should be
+  generated, or if binder should assume such bindings already exist somewhere else. Alternatively, a developer could declare a type as not-builtin if they
+  would prefer to force binder to generate bindings for it. Note that removing a builtin (``-python_builtin abc``) always overrides everything else (such as adding a builtin via ``+python_builtin abc``).
+
+.. code-block:: bash
+
+  -python_builtin std::less
+  +python_builtin std::vector
 
 
 
@@ -183,7 +200,7 @@ Config file directives:
 * ``default_member_rvalue_reference_return_value_policy``, specify return value policy for member functions returning r-value reference. Default
   is `pybind11::return_value_policy::automatic`.
 
-* ``default_call_guard``, optionally specify a call guard applied to all function definitions. See `pybind11 documentation <http://pybind11.readthedocs.io/en/stable/advanced/functions.html#call-guard>`_. Default None.
+* ``default_call_guard``, optionally specify a call guard applied to all function definitions. See `pybind11 documentation <https://pybind11.readthedocs.io/en/stable/advanced/functions.html#call-guard>`_. Default None.
 
 
 

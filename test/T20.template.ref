@@ -1,5 +1,6 @@
 // File: T20_template.cpp
 #include <T20.template.hpp> // A
+#include <T20.template.hpp> // TemplateSpecialization
 #include <T20.template.hpp> // add
 #include <T20.template.hpp> // fi
 #include <T20.template.hpp> // fi_instantiated_by_use_in_function
@@ -7,8 +8,8 @@
 #include <T20.template.hpp> // instantiate
 #include <sstream> // __str__
 
-#include <pybind11/pybind11.h>
 #include <functional>
+#include <pybind11/pybind11.h>
 #include <string>
 
 #ifndef BINDER_PYBIND11_TYPE_CASTER
@@ -20,10 +21,10 @@
 
 void bind_T20_template(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
-	// foo() file:T20.template.hpp line:17
+	// foo() file:T20.template.hpp line:16
 	M("").def("foo", (void (*)()) &foo<int>, "C++: foo() --> void");
 
-	// foo() file:T20.template.hpp line:17
+	// foo() file:T20.template.hpp line:16
 	M("").def("foo", (void (*)()) &foo<double>, "C++: foo() --> void");
 
 	{ // A file:T20.template.hpp line:24
@@ -35,43 +36,49 @@ void bind_T20_template(std::function< pybind11::module &(std::string const &name
 	// fi_instantiated_by_use_in_function(class A<int>) file:T20.template.hpp line:33
 	M("").def("fi_instantiated_by_use_in_function", (void (*)(class A<int>)) &fi_instantiated_by_use_in_function, "C++: fi_instantiated_by_use_in_function(class A<int>) --> void", pybind11::arg(""));
 
-	// fi(class A<int> &) file:T20.template.hpp line:34
+	// fi(class A<int> &) file:T20.template.hpp line:36
 	M("").def("fi", (void (*)(class A<int> &)) &fi, "C++: fi(class A<int> &) --> void", pybind11::arg(""));
 
-	// fi(class A<int> *) file:T20.template.hpp line:35
+	// fi(class A<int> *) file:T20.template.hpp line:39
 	M("").def("fi", (void (*)(class A<int> *)) &fi, "C++: fi(class A<int> *) --> void", pybind11::arg(""));
 
-	// add(int) file:T20.template.hpp line:44
+	// add(int) file:T20.template.hpp line:53
 	M("").def("add", (int (*)(int)) &add<int>, "C++: add(int) --> int", pybind11::arg("v"));
 
-	// add(int, int, int) file:T20.template.hpp line:50
+	// add(int, int, int) file:T20.template.hpp line:58
 	M("").def("add", (int (*)(int, int, int)) &add<int,int, int>, "C++: add(int, int, int) --> int", pybind11::arg("first"), pybind11::arg("as"), pybind11::arg("as"));
 
-	// add(int, int) file:T20.template.hpp line:50
+	// add(int, int) file:T20.template.hpp line:58
 	M("").def("add", (int (*)(int, int)) &add<int,int>, "C++: add(int, int) --> int", pybind11::arg("first"), pybind11::arg("as"));
 
-	// foo() file:T20.template.hpp line:56
+	// foo() file:T20.template.hpp line:63
 	M("").def("foo", (void (*)()) &foo, "C++: foo() --> void");
 
-	// foo(int) file:T20.template.hpp line:56
+	// foo(int) file:T20.template.hpp line:63
 	M("").def("foo", (void (*)(int)) &foo<int>, "C++: foo(int) --> void", pybind11::arg("as"));
 
-	// foo(int, int) file:T20.template.hpp line:56
+	// foo(int, int) file:T20.template.hpp line:63
 	M("").def("foo", (void (*)(int, int)) &foo<int, int>, "C++: foo(int, int) --> void", pybind11::arg("as"), pybind11::arg("as"));
 
-	// foo(int, int, int) file:T20.template.hpp line:56
+	// foo(int, int, int) file:T20.template.hpp line:63
 	M("").def("foo", (void (*)(int, int, int)) &foo<int, int, int>, "C++: foo(int, int, int) --> void", pybind11::arg("as"), pybind11::arg("as"), pybind11::arg("as"));
 
-	// instantiate() file:T20.template.hpp line:61
+	// instantiate() file:T20.template.hpp line:68
 	M("").def("instantiate", (void (*)()) &instantiate, "C++: instantiate() --> void");
 
+	{ // TemplateSpecialization file:T20.template.hpp line:84
+		pybind11::class_<TemplateSpecialization<float>, std::shared_ptr<TemplateSpecialization<float>>> cl(M(""), "TemplateSpecialization_float_t", "");
+		cl.def( pybind11::init( [](){ return new TemplateSpecialization<float>(); } ) );
+		cl.def_readwrite("data", &TemplateSpecialization<float>::data);
+	}
 }
 
 
 #include <map>
+#include <algorithm>
+#include <functional>
 #include <memory>
 #include <stdexcept>
-#include <functional>
 #include <string>
 
 #include <pybind11/pybind11.h>
@@ -93,9 +100,18 @@ PYBIND11_MODULE(T20_template, root_module) {
 
 	modules[""] = root_module;
 
+	static std::vector<std::string> const reserved_python_words {"nonlocal", "global", };
+
+	auto mangle_namespace_name(
+		[](std::string const &ns) -> std::string {
+			if ( std::find(reserved_python_words.begin(), reserved_python_words.end(), ns) == reserved_python_words.end() ) return ns;
+			else return ns+'_';
+		}
+	);
+
 	std::vector< std::pair<std::string, std::string> > sub_modules {
 	};
-	for(auto &p : sub_modules ) modules[p.first.size() ? p.first+"::"+p.second : p.second] = modules[p.first].def_submodule(p.second.c_str(), ("Bindings for " + p.first + "::" + p.second + " namespace").c_str() );
+	for(auto &p : sub_modules ) modules[p.first.size() ? p.first+"::"+p.second : p.second] = modules[p.first].def_submodule( mangle_namespace_name(p.second).c_str(), ("Bindings for " + p.first + "::" + p.second + " namespace").c_str() );
 
 	//pybind11::class_<std::shared_ptr<void>>(M(""), "_encapsulated_data_");
 
