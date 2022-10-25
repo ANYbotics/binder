@@ -1,5 +1,7 @@
-binder (1.2.6-1) UNRELEASED; urgency=low
+binder (1.2.7-1) UNRELEASED; urgency=low
 
+  * Release 1.2.7
+    Revert commit 7b47e78.
   * Release 1.2.6
     Sync upstream changes.
   * Release 1.2.5
