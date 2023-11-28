@@ -1,7 +1,7 @@
 #This file can be used to build binder using preinstalled LLVM/Clang
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0)
 PROJECT(binder CXX C)
-SET(VERSION 1.2.7)
+SET(VERSION 1.3.0)
 option(STATIC "Statically compile Binder. See `documentation/install.rst` for more information." OFF)
 #This actually will work even with C++11
 set(CMAKE_CXX_STANDARD 17)
@@ -12,7 +12,14 @@ set(USE_EXTERNAL_LLVM ON)
 include("GNUInstallDirs")
 set(LLVM_DIR_ORIG ${LLVM_DIR})
 set(Clang_DIR_ORIG ${Clang_DIR})
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules ${CMAKE_MODULE_PATH})
+# cmake version >= 3.19 includes all our modules
+if(${CMAKE_VERSION} VERSION_LESS "3.19")
+  set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules ${CMAKE_MODULE_PATH})
+else()
+  # set CMP0054 to NEW
+  # https://cmake.org/cmake/help/latest/policy/CMP0054.html
+  cmake_policy(SET CMP0054 NEW)
+endif()
 SET(CMAKE_MODULE_PATH_ORIG "${CMAKE_MODULE_PATH}")
 set (CMAKE_MODULE_PATH "${LLVM_DIR};${Clang_DIR};${CMAKE_MODULE_PATH}")
 option(BINDER_ENABLE_TEST      "Enables building of tests" ON)

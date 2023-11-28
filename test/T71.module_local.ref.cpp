@@ -1,5 +1,6 @@
-// File: T31_include_for_class_incl_a_include.cpp
-#include <T31.include_for_class.incl.a.include> // aaaa::A
+// File: T71_module_local.cpp
+#include <T71.module_local.hpp> // aaa::A
+#include <T71.module_local.hpp> // aaa::E1
 #include <sstream> // __str__
 
 #include <functional>
@@ -13,18 +14,26 @@
 	PYBIND11_MAKE_OPAQUE(std::shared_ptr<void>)
 #endif
 
-void bind_T31_include_for_class_incl_a_include(std::function< pybind11::module &(std::string const &namespace_) > &M)
+void bind_T71_module_local(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
-	{ // aaaa::A file:T31.include_for_class.incl.a.include line:6
-		pybind11::class_<aaaa::A, std::shared_ptr<aaaa::A>> cl(M("aaaa"), "A", "");
-		cl.def( pybind11::init( [](){ return new aaaa::A(); } ) );
+	{ // aaa::A file:T71.module_local.hpp line:16
+		pybind11::class_<aaa::A, std::shared_ptr<aaa::A>> cl(M("aaa"), "A", "", pybind11::module_local());
+		cl.def( pybind11::init( [](){ return new aaa::A(); } ) );
+		cl.def("foo", (void (aaa::A::*)()) &aaa::A::foo, "C++: aaa::A::foo() --> void");
 	}
+	// aaa::E1 file:T71.module_local.hpp line:22
+	pybind11::enum_<aaa::E1>(M("aaa"), "E1", pybind11::arithmetic(), "", pybind11::module_local())
+		.value("E1_V0", aaa::E1_V0)
+		.value("E1_V1", aaa::E1_V1)
+		.export_values();
+
+;
+
 }
 
 
-// File: T31_include_for_class_incl_b_include.cpp
-#include <T31.include_for_class.incl.b.extra.include> // +include_for_class
-#include <T31.include_for_class.incl.b.include> // bbbb::B
+// File: T71_module_local_1.cpp
+#include <T71.module_local.hpp> // bbb::B
 #include <sstream> // __str__
 
 #include <functional>
@@ -38,11 +47,12 @@ void bind_T31_include_for_class_incl_a_include(std::function< pybind11::module &
 	PYBIND11_MAKE_OPAQUE(std::shared_ptr<void>)
 #endif
 
-void bind_T31_include_for_class_incl_b_include(std::function< pybind11::module &(std::string const &namespace_) > &M)
+void bind_T71_module_local_1(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
-	{ // bbbb::B file:T31.include_for_class.incl.b.include line:6
-		pybind11::class_<bbbb::B, std::shared_ptr<bbbb::B>> cl(M("bbbb"), "B", "");
-		cl.def( pybind11::init( [](){ return new bbbb::B(); } ) );
+	{ // bbb::B file:T71.module_local.hpp line:26
+		pybind11::class_<bbb::B, std::shared_ptr<bbb::B>> cl(M("bbb"), "B", "");
+		cl.def( pybind11::init( [](){ return new bbb::B(); } ) );
+		cl.def("foo", (void (bbb::B::*)()) &bbb::B::foo, "C++: bbb::B::foo() --> void");
 	}
 }
 
@@ -58,12 +68,12 @@ void bind_T31_include_for_class_incl_b_include(std::function< pybind11::module &
 
 typedef std::function< pybind11::module & (std::string const &) > ModuleGetter;
 
-void bind_T31_include_for_class_incl_a_include(std::function< pybind11::module &(std::string const &namespace_) > &M);
-void bind_T31_include_for_class_incl_b_include(std::function< pybind11::module &(std::string const &namespace_) > &M);
+void bind_T71_module_local(std::function< pybind11::module &(std::string const &namespace_) > &M);
+void bind_T71_module_local_1(std::function< pybind11::module &(std::string const &namespace_) > &M);
 
 
-PYBIND11_MODULE(T31_include_for_class, root_module) {
-	root_module.doc() = "T31_include_for_class module";
+PYBIND11_MODULE(T71_module_local, root_module) {
+	root_module.doc() = "T71_module_local module";
 
 	std::map <std::string, pybind11::module> modules;
 	ModuleGetter M = [&](std::string const &namespace_) -> pybind11::module & {
@@ -84,22 +94,22 @@ PYBIND11_MODULE(T31_include_for_class, root_module) {
 	);
 
 	std::vector< std::pair<std::string, std::string> > sub_modules {
-		{"", "aaaa"},
-		{"", "bbbb"},
+		{"", "aaa"},
+		{"", "bbb"},
 	};
 	for(auto &p : sub_modules ) modules[p.first.size() ? p.first+"::"+p.second : p.second] = modules[p.first].def_submodule( mangle_namespace_name(p.second).c_str(), ("Bindings for " + p.first + "::" + p.second + " namespace").c_str() );
 
 	//pybind11::class_<std::shared_ptr<void>>(M(""), "_encapsulated_data_");
 
-	bind_T31_include_for_class_incl_a_include(M);
-	bind_T31_include_for_class_incl_b_include(M);
+	bind_T71_module_local(M);
+	bind_T71_module_local_1(M);
 
 }
 
-// Source list file: TEST/T31_include_for_class.sources
-// T31_include_for_class.cpp
-// T31_include_for_class_incl_a_include.cpp
-// T31_include_for_class_incl_b_include.cpp
+// Source list file: TEST/T71_module_local.sources
+// T71_module_local.cpp
+// T71_module_local.cpp
+// T71_module_local_1.cpp
 
-// Modules list file: TEST/T31_include_for_class.modules
-// aaaa bbbb 
+// Modules list file: TEST/T71_module_local.modules
+// aaa bbb 

@@ -141,7 +141,7 @@ bool is_bindable(FieldDecl *f)
 {
 	if( f->getType()->isAnyPointerType() or f->getType()->isReferenceType() or f->getType()->isArrayType() ) return false;
 
-	if( !is_field_assignable(f) ) return false;
+	//if( !is_field_assignable(f) ) return false;
 
 	if( f->isAnonymousStructOrUnion() ) return false;
 
@@ -162,7 +162,7 @@ string bind_data_member(FieldDecl const *d, string const &class_qualified_name_)
 		if( ends_with(class_qualified_name, anonymous) ) class_qualified_name.resize(class_qualified_name.size() - anonymous.size());
 	}
 
-	if( d->getType().isConstQualified() ) return ".def_readonly(\"{}\", &{}::{})"_format(d->getNameAsString(), class_qualified_name, d->getNameAsString());
+	if( d->getType().isConstQualified() or !is_field_assignable(d) ) return ".def_readonly(\"{}\", &{}::{})"_format(d->getNameAsString(), class_qualified_name, d->getNameAsString());
 	else return ".def_readwrite(\"{}\", &{}::{})"_format(d->getNameAsString(), class_qualified_name, d->getNameAsString());
 }
 
@@ -333,12 +333,13 @@ bool is_bindable_raw(clang::CXXRecordDecl const *C)
 /// check if user requested binding for the given declaration
 bool is_binding_requested(clang::CXXRecordDecl const *C, Config const &config)
 {
+	if( config.is_class_binding_requested(class_qualified_name(C)) or config.is_class_binding_requested(standard_name(C->getQualifiedNameAsString())) ) return true;
+
 	static bool bind_class_template_specialization = O_bind_class_template_specialization;
 
 	if( (not bind_class_template_specialization) and dyn_cast<ClassTemplateSpecializationDecl>(C) ) return false;
 
-	bool bind = config.is_class_binding_requested(standard_name(C->getQualifiedNameAsString())) or config.is_class_binding_requested(class_qualified_name(C)) or
-				config.is_namespace_binding_requested(namespace_from_named_decl(C));
+	bool bind = config.is_namespace_binding_requested(namespace_from_named_decl(C));
 	for( auto &t : get_type_dependencies(C) ) bind &= !is_skipping_requested(t, config);
 	return bind;
 }
@@ -346,10 +347,16 @@ bool is_binding_requested(clang::CXXRecordDecl const *C, Config const &config)
 // check if user requested skipping for the given declaration
 bool is_skipping_requested(clang::CXXRecordDecl const *C, Config const &config)
 {
-	bool skip = //
-		config.is_class_skipping_requested(standard_name(C->getQualifiedNameAsString())) or //
-		config.is_class_skipping_requested(class_qualified_name(C)) or //
-		config.is_namespace_skipping_requested(namespace_from_named_decl(C)); //
+	string qualified_name = standard_name(C->getQualifiedNameAsString());
+	string qualified_name_with_template_specialization = class_qualified_name(C);
+
+	if( config.is_class_skipping_requested(qualified_name_with_template_specialization) ) return true;
+	if( config.is_class_binding_requested(qualified_name_with_template_specialization) ) return false;
+
+	if( config.is_class_skipping_requested(qualified_name) ) return true;
+	if( config.is_class_binding_requested(qualified_name) ) return false;
+
+	bool skip = config.is_namespace_skipping_requested(namespace_from_named_decl(C));
 
 	for( auto &t : get_type_dependencies(C) ) skip |= is_skipping_requested(t, config);
 
@@ -542,6 +549,21 @@ void ClassBinder::add_relevant_includes(IncludeSet &includes) const
 	includes.add_include("<sstream> // __str__");
 }
 
+string generate_opaque_declaration_if_needed(string const & qualified_name, string const & qualified_name_without_template)
+{
+	// pybind11 container lists https://pybind11.readthedocs.io/en/stable/advanced/cast/stl.html
+	static vector<string> stl_containers {"std::vector", "std::deque", "std::list", "std::array", "std::valarray", "std::set", "std::unordered_set", "std::map", "std::unordered_map"};
+
+	if( begins_with(qualified_name_without_template, "std::") ) {
+		auto it = std::find(stl_containers.begin(), stl_containers.end(), qualified_name_without_template);
+		if( it != stl_containers.end() ) {
+			return "PYBIND11_MAKE_OPAQUE(" + qualified_name + ");\n";
+		}
+	}
+
+	return "";
+}
+
 string binding_public_data_members(CXXRecordDecl const *C)
 {
 	string c;
@@ -553,6 +575,10 @@ string binding_public_data_members(CXXRecordDecl const *C)
 				for( auto s = u->shadow_begin(); s != u->shadow_end(); ++s ) {
 					if( UsingShadowDecl *us = dyn_cast<UsingShadowDecl>(*s) ) {
 						if( FieldDecl *f = dyn_cast<FieldDecl>(us->getTargetDecl()) ) {
+							auto config = Config::get();
+							if ( config.is_field_skipping_requested(f->getQualifiedNameAsString())) {
+								continue;
+							}
 							if( is_bindable(f) ) c += "\tcl" + bind_data_member(f, class_qualified_name(C)) + ";\n";
 						}
 					}
@@ -563,6 +589,11 @@ string binding_public_data_members(CXXRecordDecl const *C)
 
 	for( auto d = C->decls_begin(); d != C->decls_end(); ++d ) {
 		if( FieldDecl *f = dyn_cast<FieldDecl>(*d) ) {
+			//outs() << "Class: " << class_qualified_name(C); f->dump(); outs() << "\n";
+			auto config = Config::get();
+			if ( config.is_field_skipping_requested(f->getQualifiedNameAsString()) ) {
+				continue;
+			}
 			if( f->getAccess() == AS_public and is_bindable(f) ) c += "\tcl" + bind_data_member(f, class_qualified_name(C)) + ";\n";
 		}
 	}
@@ -573,7 +604,7 @@ string binding_public_data_members(CXXRecordDecl const *C)
 inline string callback_structure_name(CXXRecordDecl const *C)
 {
 	string ns = replace_(namespace_from_named_decl(C), "::", "_");
-	return "PyCallBack_" + (ns.empty() ? "" : ns + '_') + python_class_name(C);
+	return mangle_type_name( "PyCallBack_" + (ns.empty() ? "" : ns + '_') + python_class_name(C), false );
 }
 
 
@@ -685,7 +716,7 @@ string bind_member_functions_for_call_back(CXXRecordDecl const *C, string const 
 			//  	(*m)->dump();
 			//  }
 
-			string return_type = standard_name(m->getReturnType().getCanonicalType().getAsString());
+			string return_type = standard_name(m->getReturnType());
 			fix_boolean_types(return_type);
 
 			// check if we need to fix return class to be 'derived-class &' or 'derived-class *'
@@ -729,9 +760,22 @@ string bind_member_functions_for_call_back(CXXRecordDecl const *C, string const 
 
 				c += "\t{} {}({}){} {}override {{"_format(return_type, m->getNameAsString(), std::get<0>(args), m->isConst() ? " const" : "", exception_specification);
 
-				c += indent(fmt::format(call_back_function_body_template, class_name, /*class_qualified_name(C), */ python_name, std::get<1>(args), return_type), "\t\t");
-				if( m->isPure() ) c += "\t\tpybind11::pybind11_fail(\"Tried to call pure virtual function \\\"{}::{}\\\"\");\n"_format(C->getNameAsString(), python_name);
-				else c += "\t\treturn {}::{}({});\n"_format(C->getNameAsString(), m->getNameAsString(), std::get<1>(args));
+				string member_function_name = namespace_from_named_decl(C);
+				if ( member_function_name.length() > 0 ) member_function_name += "::";
+				member_function_name +=  C->getNameAsString() + "::" + m->getNameAsString();
+				string custom_function_info = Config::get().is_custom_trampoline_function_requested(member_function_name);
+				if( custom_function_info == "" ) {
+					c += indent(fmt::format(call_back_function_body_template, class_name, /*class_qualified_name(C), */ python_name, std::get<1>(args), return_type), "\t\t");
+					if( m->isPure() ) c += "\t\tpybind11::pybind11_fail(\"Tried to call pure virtual function \\\"{}::{}\\\"\");\n"_format(C->getNameAsString(), python_name);
+					else c += "\t\treturn {}::{}({});\n"_format(C->getNameAsString(), m->getNameAsString(), std::get<1>(args));
+				}
+				else {
+					string input_args = std::get<1>(args);
+					c += "\n\t\treturn {}<{},{}>(this, \"{}\", \"{}\""_format(custom_function_info, C->getNameAsString(), callback_structure_name(C), class_name, m->getNameAsString());
+					if ( input_args.length() > 0 )
+						c += ", {}"_format(std::get<1>(args));
+					c += ");\n";
+				}
 				c += "\t}\n";
 
 				// c += string(m->isPure() ? "PYBIND11_OVERLOAD_PURE_NAME" : "PYBIND11_OVERLOAD_NAME") + '(';
@@ -845,7 +889,7 @@ string binding_template_bases(CXXRecordDecl const *C, bool callback_structure, b
 
 	if( dyn_cast<ClassTemplateSpecializationDecl>(C) ) { // for template classes explicitly bind data members and member functions from public base classes
 		for( auto b = C->bases_begin(); b != C->bases_end(); ++b ) {
-			if( b->getAccessSpecifier() == AS_public ) {
+			if( b->getAccessSpecifier() == AS_public and !b->isVirtual() ) {
 				if( auto rt = dyn_cast<RecordType>(b->getType().getCanonicalType().getTypePtr()) ) {
 					if( CXXRecordDecl *R = cast<CXXRecordDecl>(rt->getDecl()) ) {
 						if( !is_skipping_requested(R, Config::get()) ) {
@@ -871,10 +915,15 @@ string bind_forward_declaration(CXXRecordDecl const *C, Context &context)
 
 	string const include = relevant_include(C);
 
+	string holder_type = Config::get().holder_type();
+
 	string c = "\t// Forward declaration for: " + qualified_name + " file:" + (include.size() ? include.substr(1, include.size() - 2) : "") + " line:" + line_number(C) + "\n";
 
-	string maybe_holder_type = ", std::shared_ptr<{}>"_format(qualified_name);
-	if( is_inherited_from_enable_shared_from_this(C) ) maybe_holder_type = ", std::shared_ptr<{}>"_format(qualified_name);
+	string maybe_holder_type = ", {}<{}>"_format(holder_type, qualified_name);
+	//Check if the type is a custom shared pointer:
+	if( is_inherited_from_enable_shared_from_this(C) ) {
+		maybe_holder_type = ", {}<{}>"_format(holder_type, qualified_name);
+	}
 	else if( CXXDestructorDecl *d = C->getDestructor() ) {
 		if( d->getAccess() != AS_public ) maybe_holder_type = ", " + qualified_name + '*';
 	}
@@ -1084,9 +1133,16 @@ std::string ClassBinder::bind_repr(Context &context, Config const &config)
 	if( config.is_function_skipping_requested(qualified_name + "::__str__") or config.is_function_skipping_requested( standard_name(C->getQualifiedNameAsString() + "::__str__" ) ) ) return c;
 
 	if( FunctionDecl const *F = context.global_insertion_operator(C) ) {
-		// outs() << "Found insertion operator for: " << class_qualified_name(C) << "\n";
+		//outs() << "Found insertion operator for: " << class_qualified_name(C) << "\n";
+		//outs() << "insertion operator: " << F->getNameInfo().getAsString() << " qn: " << F->getQualifiedNameAsString() << " dn:" << F->getDeclName() << "\n";
 
-		c += "\n\tcl.def(\"__str__\", []({} const &o) -> std::string {{ std::ostringstream s; s << o; return s.str(); }} );\n"_format(qualified_name);
+		string maybe_using_decl;
+
+		string ns = namespace_from_named_decl(F);
+		if(ns.size()) maybe_using_decl = " using namespace {};"_format(ns);
+
+		//c += "\n\tcl.def(\"__str__\", []({} const &o) -> std::string {{ std::ostringstream s; {}(s, o); return s.str(); }} );\n"_format(qualified_name, F->getQualifiedNameAsString());
+		c += "\n\tcl.def(\"__str__\", []({} const &o) -> std::string {{ std::ostringstream s;{} s << o; return s.str(); }} );\n"_format(qualified_name, maybe_using_decl);
 
 		prefix_includes_.push_back(F);
 	}
@@ -1140,7 +1196,11 @@ void ClassBinder::bind(Context &context)
 {
 	if( is_binded() ) return;
 
+	string const qualified_name = class_qualified_name(C);
 	string const qualified_name_without_template = standard_name(C->getQualifiedNameAsString());
+
+	//prefix_code_ += generate_opaque_declaration_if_needed(qualified_name, qualified_name_without_template);
+
 	std::map<string, string> const &external_binders = Config::get().binders();
 	if( external_binders.count(qualified_name_without_template) ) {
 		bind_with(external_binders.at(qualified_name_without_template), context);
@@ -1154,8 +1214,6 @@ void ClassBinder::bind(Context &context)
 	bool trampoline = callback_structure and callback_structure_constructible;
 
 	if( trampoline ) generate_prefix_code();
-
-	string const qualified_name{class_qualified_name(C)};
 
 	bool named_class = not C->isAnonymousStructOrUnion();
 
@@ -1176,24 +1234,41 @@ void ClassBinder::bind(Context &context)
 	string const trampoline_name = callback_structure_constructible ? callback_structure_name(C) : "";
 	string const binding_qualified_name = callback_structure_constructible ? callback_structure_name(C) : qualified_name;
 
-	string maybe_holder_type = ", std::shared_ptr<{}>"_format(qualified_name); // for now enable std::shared_ptr by default
-	if( is_inherited_from_enable_shared_from_this(C) ) maybe_holder_type = ", std::shared_ptr<{}>"_format(qualified_name);
+	string holder_type = Config::get().holder_type();
+
+	string maybe_holder_type = ", {}<{}>"_format(holder_type, qualified_name);
+
+	if( is_inherited_from_enable_shared_from_this(C) ) {
+		maybe_holder_type = ", {}<{}>"_format(holder_type, qualified_name);
+	}
 	else if( CXXDestructorDecl *d = C->getDestructor() ) {
 		if( d->getAccess() != AS_public ) maybe_holder_type = ", " + qualified_name + '*';
 	}
-
 	string maybe_trampoline = callback_structure_constructible ? ", " + binding_qualified_name : "";
+
+	// Add module local if requested for the namespace
+	std::string module_local_annotation = "";
+	if (Config::get().is_module_local_requested(namespace_from_named_decl(C)))
+		module_local_annotation = ", pybind11::module_local()";
 
 	// Add buffer protocol if requested
 	std::string buffer_protocol_annotation = "";
 	if (Config::get().is_buffer_protocol_requested(qualified_name_without_template))
 		buffer_protocol_annotation = ", pybind11::buffer_protocol()";
 
-	if( named_class )
+	std::string extra_annotation = module_local_annotation + buffer_protocol_annotation;
+
+	if( named_class ) {
+		if (Config::get().is_smart_holder_requested(qualified_name_without_template)) {
+			c += '\t' +
+				R"(PYBIND11_TYPE_CASTER_BASE_HOLDER({} {}))"_format(qualified_name, maybe_holder_type) +
+				'\n';
+		}
 		c += '\t' +
 			 R"(pybind11::class_<{}{}{}{}> cl({}, "{}", "{}"{});)"_format(qualified_name, maybe_holder_type, maybe_trampoline, maybe_base_classes(context), module_variable_name, python_class_name(C),
-																		generate_documentation_string_for_declaration(C), buffer_protocol_annotation) +
+																		generate_documentation_string_for_declaration(C), extra_annotation) +
 			 '\n';
+	}
 	// c += "\tpybind11::handle cl_type = cl;\n\n";
 
 	// if( C->isAbstract()  and  callback_structure) c += "\tcl.def(pybind11::init<>());\n";

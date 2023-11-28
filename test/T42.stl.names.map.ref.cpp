@@ -1,12 +1,6 @@
 // File: std/stl_function.cpp
-#include <exception> // std::bad_exception
-#include <exception> // std::exception
-#include <exception> // std::terminate
-#include <exception> // std::uncaught_exception
-#include <exception> // std::unexpected
 #include <functional> // std::binary_function
 #include <functional> // std::equal_to
-#include <functional> // std::less
 #include <iterator> // __gnu_cxx::__normal_iterator
 #include <memory> // std::allocator
 #include <sstream> // __str__
@@ -56,32 +50,18 @@ void bind_std_stl_function(std::function< pybind11::module &(std::string const &
 // File: std/functional_hash.cpp
 #include <deque> // std::deque
 #include <forward_list> // std::forward_list
-#include <functional> // std::_Manager_operation
-#include <functional> // std::bad_function_call
 #include <functional> // std::hash
 #include <functional> // std::less
 #include <iterator> // __gnu_cxx::__normal_iterator
 #include <list> // std::list
-#include <map> // std::_Rb_tree_color
 #include <map> // std::_Rb_tree_const_iterator
 #include <map> // std::_Rb_tree_iterator
 #include <map> // std::map
 #include <memory> // std::allocator
-#include <memory> // std::allocator_arg_t
 #include <sstream> // __str__
-#include <stdexcept> // std::domain_error
-#include <stdexcept> // std::invalid_argument
-#include <stdexcept> // std::length_error
-#include <stdexcept> // std::logic_error
-#include <stdexcept> // std::out_of_range
-#include <stdexcept> // std::overflow_error
-#include <stdexcept> // std::range_error
-#include <stdexcept> // std::runtime_error
-#include <stdexcept> // std::underflow_error
 #include <string> // std::basic_string
 #include <string> // std::char_traits
 #include <string> // std::hash
-#include <tuple> // std::tuple
 #include <utility> // std::pair
 #include <vector> // std::vector
 
@@ -102,13 +82,13 @@ void bind_std_functional_hash(std::function< pybind11::module &(std::string cons
 		pybind11::class_<std::hash<float>, std::shared_ptr<std::hash<float>>> cl(M("std"), "hash_float_t", "");
 		cl.def( pybind11::init( [](){ return new std::hash<float>(); } ) );
 		cl.def( pybind11::init( [](std::hash<float> const &o){ return new std::hash<float>(o); } ) );
-		cl.def("__call__", (unsigned long (std::hash<float>::*)(float) const) &std::hash<float>::operator(), "C++: std::hash<float>::operator()(float) const --> unsigned long", pybind11::arg("__val"));
+		cl.def("__call__", (std::size_t (std::hash<float>::*)(float) const) &std::hash<float>::operator(), "C++: std::hash<float>::operator()(float) const --> std::size_t", pybind11::arg("__val"));
 		cl.def("assign", (struct std::hash<float> & (std::hash<float>::*)(const struct std::hash<float> &)) &std::hash<float>::operator=, "C++: std::hash<float>::operator=(const struct std::hash<float> &) --> struct std::hash<float> &", pybind11::return_value_policy::automatic, pybind11::arg(""));
 	}
 	{ // std::hash file:bits/basic_string.h line:3044
 		pybind11::class_<std::hash<std::string>, std::shared_ptr<std::hash<std::string>>> cl(M("std"), "hash_std_string_t", "");
 		cl.def( pybind11::init( [](){ return new std::hash<std::string>(); } ) );
-		cl.def("__call__", (unsigned long (std::hash<std::string>::*)(const std::string &) const) &std::hash<std::string >::operator(), "C++: std::hash<std::string >::operator()(const std::string &) const --> unsigned long", pybind11::arg("__s"));
+		cl.def("__call__", (std::size_t (std::hash<std::string>::*)(const std::string &) const) &std::hash<std::string >::operator(), "C++: std::hash<std::string >::operator()(const std::string &) const --> std::size_t", pybind11::arg("__s"));
 	}
 	{ // std::map file:bits/stl_map.h line:96
 		pybind11::class_<std::map<float,int>, std::shared_ptr<std::map<float,int>>> cl(M("std"), "map_float_int_t", "");

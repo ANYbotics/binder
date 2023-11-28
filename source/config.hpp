@@ -39,7 +39,7 @@ class Config
 
 private:
 	std::map<string, string> binders_, add_on_binders_;
-	std::map<string, string> binder_for_namespaces_, add_on_binder_for_namespaces_;
+	std::map<string, string> binder_for_namespaces_, add_on_binder_for_namespaces_, custom_trampoline_functions_;
 
 	std::map<string, std::vector<string> > class_includes_, namespace_includes_;
 
@@ -51,6 +51,11 @@ private:
 	string default_member_lvalue_reference_return_value_policy_ = "pybind11::return_value_policy::automatic";
 	string default_member_rvalue_reference_return_value_policy_ = "pybind11::return_value_policy::automatic";
 	string default_call_guard_ = "";
+	string holder_type_ = "std::shared_ptr";
+	string pybind11_include_file_ = "pybind11/pybind11.h";
+	string prefix_for_static_member_functions_ = "";
+
+	std::vector<string> enums_to_bind, enums_to_skip;
 
 public:
 	static Config &get();
@@ -60,8 +65,8 @@ public:
 
 	string root_module;
 
-	std::vector<string> namespaces_to_bind, classes_to_bind, functions_to_bind, namespaces_to_skip, classes_to_skip, functions_to_skip, includes_to_add, includes_to_skip;
-	std::vector<string> buffer_protocols;
+	std::vector<string> namespaces_to_bind, classes_to_bind, functions_to_bind, namespaces_to_skip, classes_to_skip, functions_to_skip, includes_to_add, includes_to_skip, fields_to_skip;
+	std::vector<string> buffer_protocols, module_local_namespaces_to_add, module_local_namespaces_to_skip, smart_held_classes;
 
 	std::map<string, string> const &binders() const { return binders_; }
 	std::map<string, string> const &add_on_binders() const { return add_on_binders_; }
@@ -83,6 +88,11 @@ public:
 	string const &default_member_rvalue_reference_return_value_policy() { return default_member_rvalue_reference_return_value_policy_; }
 	string const &default_call_guard() { return default_call_guard_; }
 
+	string const &prefix_for_static_member_functions() { return prefix_for_static_member_functions_; }
+
+	string const &holder_type() const { return holder_type_; }
+	string const &pybind11_include_file() const { return pybind11_include_file_; }
+
 	string prefix;
 
 	std::size_t maximum_file_length;
@@ -90,17 +100,28 @@ public:
 	/// check if user requested binding for given declaration
 	bool is_namespace_binding_requested(string const &namespace_) const;
 	bool is_namespace_skipping_requested(string const &namespace_) const;
+	bool is_module_local_requested(string const &namespace_) const;
 
 	bool is_function_binding_requested(string const &function) const;
 	bool is_function_skipping_requested(string const &function) const;
 
 	bool is_class_binding_requested(string const &class_) const;
 	bool is_class_skipping_requested(string const &class_) const;
+
+	bool is_enum_binding_requested(string const &enum_) const;
+	bool is_enum_skipping_requested(string const &enum_) const;
+
 	bool is_buffer_protocol_requested(string const &class_) const;
+
+	bool is_smart_holder_requested(string const &class_) const;
 
 	bool is_include_skipping_requested(string const &include) const;
 
+	string is_custom_trampoline_function_requested(string const &function__) const;
+
 	string includes_code() const;
+
+	bool is_field_skipping_requested(string const &name) const;
 };
 
 

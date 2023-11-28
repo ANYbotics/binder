@@ -1,8 +1,8 @@
-// File: T01_enum.cpp
-#include <T01.enum.hpp> // A
-#include <T01.enum.hpp> // E1
-#include <T01.enum.hpp> // E2_struct
-#include <T01.enum.hpp> // E3_class
+// File: T60_custom_shared.cpp
+#include <T60.custom_shared.hpp> // A
+#include <T60.custom_shared.hpp> // E1
+#include <T60.custom_shared.hpp> // E2_struct
+#include <T60.custom_shared.hpp> // E3_class
 #include <sstream> // __str__
 
 #include <functional>
@@ -11,14 +11,14 @@
 
 #ifndef BINDER_PYBIND11_TYPE_CASTER
 	#define BINDER_PYBIND11_TYPE_CASTER
-	PYBIND11_DECLARE_HOLDER_TYPE(T, std::shared_ptr<T>)
+	PYBIND11_DECLARE_HOLDER_TYPE(T, my_shared_ptr<T>)
 	PYBIND11_DECLARE_HOLDER_TYPE(T, T*)
-	PYBIND11_MAKE_OPAQUE(std::shared_ptr<void>)
+	PYBIND11_MAKE_OPAQUE(my_shared_ptr<void>)
 #endif
 
-void bind_T01_enum(std::function< pybind11::module &(std::string const &namespace_) > &M)
+void bind_T60_custom_shared(std::function< pybind11::module &(std::string const &namespace_) > &M)
 {
-	// E1 file:T01.enum.hpp line:16
+	// E1 file:T60.custom_shared.hpp line:21
 	pybind11::enum_<E1>(M(""), "E1", pybind11::arithmetic(), "")
 		.value("E1_V0", E1_V0)
 		.value("E1_V1", E1_V1)
@@ -26,7 +26,7 @@ void bind_T01_enum(std::function< pybind11::module &(std::string const &namespac
 
 ;
 
-	// E2_struct file:T01.enum.hpp line:18
+	// E2_struct file:T60.custom_shared.hpp line:23
 	pybind11::enum_<E2_struct>(M(""), "E2_struct", "")
 		.value("V0", E2_struct::V0)
 		.value("V1", E2_struct::V1)
@@ -34,15 +34,15 @@ void bind_T01_enum(std::function< pybind11::module &(std::string const &namespac
 
 ;
 
-	// E3_class file:T01.enum.hpp line:19
+	// E3_class file:T60.custom_shared.hpp line:24
 	pybind11::enum_<E3_class>(M(""), "E3_class", "")
 		.value("V0", E3_class::V0)
 		.value("V1", E3_class::V1);
 
 ;
 
-	{ // A file:T01.enum.hpp line:22
-		pybind11::class_<A, std::shared_ptr<A>> cl(M(""), "A", "");
+	{ // A file:T60.custom_shared.hpp line:27
+		pybind11::class_<A, my_shared_ptr<A>> cl(M(""), "A", "");
 		cl.def( pybind11::init( [](){ return new A(); } ) );
 
 		pybind11::enum_<A::AE1>(cl, "AE1", pybind11::arithmetic(), "")
@@ -76,11 +76,11 @@ void bind_T01_enum(std::function< pybind11::module &(std::string const &namespac
 
 typedef std::function< pybind11::module & (std::string const &) > ModuleGetter;
 
-void bind_T01_enum(std::function< pybind11::module &(std::string const &namespace_) > &M);
+void bind_T60_custom_shared(std::function< pybind11::module &(std::string const &namespace_) > &M);
 
 
-PYBIND11_MODULE(T01_enum, root_module) {
-	root_module.doc() = "T01_enum module";
+PYBIND11_MODULE(T60_custom_shared, root_module) {
+	root_module.doc() = "T60_custom_shared module";
 
 	std::map <std::string, pybind11::module> modules;
 	ModuleGetter M = [&](std::string const &namespace_) -> pybind11::module & {
@@ -106,13 +106,13 @@ PYBIND11_MODULE(T01_enum, root_module) {
 
 	//pybind11::class_<std::shared_ptr<void>>(M(""), "_encapsulated_data_");
 
-	bind_T01_enum(M);
+	bind_T60_custom_shared(M);
 
 }
 
-// Source list file: TEST/T01_enum.sources
-// T01_enum.cpp
-// T01_enum.cpp
+// Source list file: TEST/T60_custom_shared.sources
+// T60_custom_shared.cpp
+// T60_custom_shared.cpp
 
-// Modules list file: TEST/T01_enum.modules
+// Modules list file: TEST/T60_custom_shared.modules
 // 
